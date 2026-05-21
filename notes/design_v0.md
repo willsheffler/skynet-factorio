@@ -161,7 +161,129 @@ measure the cheat-vs-competence tradeoff.
 ## Open questions for Will (no rush)
 
 - Skynet identity expansion: confirm or alternate name (see survey doc).
-- License: MIT? Apache? AGPL? Matters if Phase 4 goes academic.
-- Cheat-budget defaults: start at Tier 1-2 baseline for first kids session?
-- Persistent-identity bot via existing agent (Vellum / Madeira / other): which
-  agent's voice should the bot have? Or a fresh identity entirely?
+- ~~License: MIT? Apache? AGPL?~~ **RESOLVED 2026-05-21**: Apache 2.0 per Will preference.
+- Cheat-budget defaults: deprecated as a "pick before game" config; see
+  architecture v0.1 below — capabilities are now dynamically dialed by the
+  LLM in response to in-game chat.
+- Persistent-identity bot via existing agent (Vellum / Madeira / other):
+  which agent's voice should the bot have? Or a fresh identity entirely?
+
+---
+
+## Architecture v0.1 — after 2026-05-21 brainstorm
+
+Substantive updates from Will-direct conversation (ftui_turn_8772b102 +
+ftui_turn_4255e204). Key shifts: capabilities are dynamic not static;
+in-game chat is first-class input from day one; multi-tier LLM stack
+(Opus strategic + Haiku tactical-chat).
+
+### Capabilities are dynamic, not static
+
+Tiered configs you pick before a game are deprecated. The driving LLM
+grants and revokes individual capability knobs on the fly based on
+in-game chat. Named bundles are mnemonic shorthand for the LLM, not
+user-picked configs.
+
+**Atomic capability knobs the LLM toggles per-bot per-moment:**
+
+- `vision` — full map awareness, no fog of war
+- `reach` — extended build / mining / combat range
+- `speed` — faster character / mining / building
+- `combat` — damage multiplier or invulnerability
+- `resources` — inventory subsidy (one-shot or continuous trickle)
+- `blueprint-lib` — search-and-place from curated blueprint library
+- `teleport` — instant position change
+- `item-conjure` — spawn any unlocked item into inventory
+- `auto-route` — SAT-solver-backed optimal belt routing on demand
+
+**Named bundles (LLM shorthand):**
+
+- `fair-player` — nothing granted
+- `defender` — vision + combat
+- `builder` — vision + reach + blueprint-lib
+- `gatherer` — vision + speed + light resources
+- `god-mode` — everything
+
+### In-game chat is first-class input from day one
+
+The `skynet_observer` Lua mod hooks `on_console_chat`. Every player
+message gets pushed (not pulled) into a chat buffer with `sender + tick
++ text`, with `@skynet`-prefixed messages flagged as bot-directed but
+non-directed chat still routed for team-context awareness. Push goes to
+the Pensieve-side driving agent over RCON.
+
+### Three-tier LLM stack
+
+Composing Will's multi-tier-agent direction with the strategic-vs-tactical
+layer boundary I sketched earlier:
+
+```
++-------------------------------------------------------+
+| C3: Strategic LLM — Opus or Sonnet                    |
+|   Cadence: tens of seconds to minutes                 |
+|   Job: Voyager-style curriculum + skill curation;     |
+|        deep deliberation on capability grants;        |
+|        personality chat with time to think;           |
+|        skill-library write-back                       |
++----------------+--------------------------------------+
+                 |  oversight + escalate-up channel
+                 v
++-------------------------------------------------------+
+| C2.5: Tactical-chat LLM — Haiku                       |
+|   Cadence: ~0.5s response                             |
+|   Job: real-time chat read + snappy banter back;      |
+|        fast capability dial-up / dial-down;           |
+|        route deeper questions up to strategic;        |
+|        the personality Will & Jonah feel in-game      |
++----------------+--------------------------------------+
+                 |  calls Python primitives
+                 v
++-------------------------------------------------------+
+| C2: Skill library — Python over FLE API               |
+|   Cadence: microseconds                               |
+|   Job: build-smelter-pair, defense-patrol, etc.       |
+|        Voyager-style growing-by-experience            |
++----------------+--------------------------------------+
+                 |  calls FLE API + cheat surface
+                 v
++-------------------------------------------------------+
+| C1: FLE Python API + cheat-toggle surface             |
+|   Cadence: microseconds                               |
+|   Job: move bot character, place entities, apply or   |
+|        revoke vision/reach/speed/combat/etc.          |
++-------------------------------------------------------+
+```
+
+Combat reflexes still live below the LLM tiers in scripted or RL
+tactics. Strategic loop: human-chat cadence. Tactical-chat loop:
+half-second. Skill execution: real-time.
+
+### Strategic-vs-tactical handoff: default Option A
+
+**Option A (default)**: Haiku decides everything. Opus watches and posts
+corrections asynchronously via in-chat note or quiet capability revocation.
+Lower latency, looser supervision. Mirrors Facet/Pavilion or
+Facet/Marrow coordinator-of-record patterns.
+
+**Option B (alternate)**: Haiku handles low-stakes only. Above an
+impact threshold (grant god-mode, change current task), route to Opus
+for confirmation, blocking Haiku. Higher latency for important calls,
+tighter supervision.
+
+Defaulting to A with explicit escalate-up triggers Haiku can fire when
+it knows it's over its head.
+
+### LLMs speak in chat with distinct personalities
+
+Tactical-fast Haiku is impulsive, snappy. Strategic Opus or Sonnet is
+slower, deliberate, more deliberate. Will and Jonah read the difference
+as a real teammate quirk — the bot has a fast-talking side and a
+slow-thinking side. Fun and lowers cognitive load (the personalities are
+the API).
+
+### Composability with Will + Facet's voice-chat direction
+
+Same shape Will and Facet are exploring for voice-chat: Haiku as snappy
+front, Sonnet or Opus as deliberate puppeteer monitoring and correcting.
+Skynet is a test bed for that pattern in a non-relational context. If it
+works here it informs the Facet/voice direction too.
