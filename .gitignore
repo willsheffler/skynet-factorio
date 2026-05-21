@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.venv/
+.python-version
+*.log
+*.zip
+factorio-headless/
+saves/
+mods-runtime/
+.DS_Store
+.env
