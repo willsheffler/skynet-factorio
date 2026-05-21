@@ -1,0 +1,76 @@
+"""RCON client wrapper for skynet_observer mod.
+
+Thin wrapper around factorio_rcon.RCONClient that knows the conventions of
+our mod's remote interface. Phase 0 surface: ping, state_snapshot, raw_cmd.
+"""
+
+from __future__ import annotations
+
+import json
+import pathlib
+from typing import Any
+
+import factorio_rcon
+
+
+class SkynetClient:
+    """Phase 0 RCON client for the skynet_observer mod.
+
+    Parameters
+    ----------
+    host : str
+        IP/hostname of the headless Factorio server. Default 127.0.0.1.
+    port : int
+        RCON port. Default matches scripts/run_headless.sh (27015).
+    password : str
+        RCON password (read from runtime/factorio-headless/rcon-password if
+        omitted).
+    """
+
+    DEFAULT_RCON_PASSWORD_FILE = (
+        pathlib.Path(__file__).resolve().parents[2]
+        / "runtime"
+        / "factorio-headless"
+        / "rcon-password"
+    )
+
+    def __init__(
+        self,
+        host: str = "127.0.0.1",
+        port: int = 27015,
+        password: str | None = None,
+    ) -> None:
+        if password is None:
+            password = self.DEFAULT_RCON_PASSWORD_FILE.read_text().strip()
+        self._client = factorio_rcon.RCONClient(host, port, password)
+
+    def __enter__(self) -> "SkynetClient":
+        return self
+
+    def __exit__(self, *exc) -> None:
+        self.close()
+
+    def close(self) -> None:
+        self._client.close()
+
+    def raw_cmd(self, cmd: str) -> str:
+        """Send a raw Factorio chat/console command. Returns the server's response text."""
+        return self._client.send_command(cmd)
+
+    def ping(self) -> dict[str, Any]:
+        """Call remote.skynet.ping(). Returns {ok: bool, tick: int}."""
+        raw = self._client.send_command(
+            "/sc rcon.print(helpers.table_to_json(remote.call('skynet', 'ping')))"
+        )
+        return json.loads(raw)
+
+    def state_snapshot(self) -> dict[str, Any]:
+        """Call remote.skynet.state_snapshot(). Returns the snapshot dict."""
+        raw = self._client.send_command(
+            "/sc rcon.print(helpers.table_to_json(remote.call('skynet', 'state_snapshot')))"
+        )
+        return json.loads(raw)
+
+    def say(self, message: str) -> str:
+        """Make the bot post a chat message via the mod's /skynet_say command."""
+        return self._client.send_command(f"/skynet_say {message}")

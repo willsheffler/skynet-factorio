@@ -54,7 +54,27 @@ no LAN protocol layer between bot and game state.
 - [x] Survey existing work
 - [x] Decide topology (headless-hosts)
 - [x] Repo scaffolded
-- [ ] Headless Factorio installed on cake
-- [ ] factorio-rcon Python lib installed + tested
-- [ ] Minimal Lua mod that emits one tick of state
-- [ ] Smoke test: Will + bot in one game
+- [x] Headless Factorio configured on cake (Steam binary + separate runtime dir)
+- [x] factorio-rcon Python lib installed + tested
+- [x] Minimal Lua mod loaded successfully + remote interface verified
+- [x] Smoke test end-to-end: ping + state_snapshot + say round-trip via RCON
+- [ ] Live multiplayer smoke: Will joins bot-hosted game (deferred until Will has time at cake)
+
+## Phase 0 quickstart
+
+```bash
+# 1. Initialize headless runtime (one-time)
+./scripts/init_headless.sh
+
+# 2. Set up the Python harness venv (one-time)
+cd harness && uv venv && uv pip install -e . && cd ..
+
+# 3. Launch the headless server (in one terminal)
+./scripts/run_headless.sh skynet_smoke
+
+# 4. In another terminal, run the smoke test
+cd harness && .venv/bin/python -m skynet_harness.smoke
+```
+
+The headless server listens on LAN port 34197. Steam Factorio clients can find
+it via Play → Multiplayer → Play on LAN.

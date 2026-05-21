@@ -1,0 +1,11 @@
+{
+  "name": "skynet_observer",
+  "version": "0.0.1",
+  "title": "Skynet Observer",
+  "author": "Will Sheffler + Vellum",
+  "contact": "willsheffler@gmail.com",
+  "homepage": "https://github.com/willsheffler/skynet-factorio",
+  "description": "State observation + command intake for the skynet-factorio AI bot. Phase 0 scaffold: emits structured state on /skynet_state and prints commands received via RCON.",
+  "factorio_version": "2.0",
+  "dependencies": ["base"]
+}
