@@ -1,10 +1,8 @@
 -- skynet_observer / control.lua
--- Phase 0 scaffold. Two surfaces:
---   1. /skynet_state   — chat command; emits structured JSON snapshot of game state
---   2. RCON commands   — via remote-callable interface "skynet" with functions:
---         remote.call("skynet", "state_snapshot")
---         remote.call("skynet", "ping")
--- Outputs are placed in game.print so RCON callers see them in the response.
+-- Phase 0 + chat-pipe scaffold.
+
+local CHAT_BUFFER_MAX = 100
+local chat_buffer = {}
 
 local function snapshot()
   local snap = {
@@ -31,31 +29,66 @@ local function snapshot()
   return snap
 end
 
+local function record_chat(player_index, message)
+  local name = "<server>"
+  if player_index and game.players[player_index] then
+    name = game.players[player_index].name
+  end
+  table.insert(chat_buffer, {
+    tick = game.tick,
+    player_index = player_index,
+    player_name = name,
+    message = message,
+  })
+  while #chat_buffer > CHAT_BUFFER_MAX do
+    table.remove(chat_buffer, 1)
+  end
+end
+
+script.on_event(defines.events.on_console_chat, function(event)
+  record_chat(event.player_index, event.message)
+end)
+
 commands.add_command(
   "skynet_state",
-  "Emit a JSON snapshot of current game state (skynet bot phase 0).",
+  "Emit a JSON snapshot of current game state.",
   function(event)
-    local snap = snapshot()
-    game.print(helpers.table_to_json(snap))
+    game.print(helpers.table_to_json(snapshot()))
   end
 )
 
 commands.add_command(
   "skynet_say",
-  "Make the skynet bot say something in chat (phase 0 round-trip check).",
+  "Make the skynet bot say something in chat.",
   function(event)
     local msg = event.parameter or "(no message)"
     game.print("[skynet] " .. msg)
   end
 )
 
--- Remote interface for RCON / programmatic use.
 remote.add_interface("skynet", {
   ping = function()
     return { ok = true, tick = game.tick }
   end,
   state_snapshot = function()
     return snapshot()
+  end,
+  -- Return all chat-buffer entries with tick > since_tick.
+  -- Pass 0 (or omit) for full buffer. Buffer is in-memory only, max 100 entries.
+  chat_since = function(since_tick)
+    since_tick = since_tick or 0
+    local result = {}
+    for _, entry in ipairs(chat_buffer) do
+      if entry.tick > since_tick then
+        table.insert(result, entry)
+      end
+    end
+    return { tick = game.tick, entries = result }
+  end,
+  -- Clear the in-memory chat buffer.
+  chat_clear = function()
+    chat_buffer = {}
+    return { ok = true, tick = game.tick }
   end,
 })
 
@@ -64,5 +97,5 @@ script.on_init(function()
 end)
 
 script.on_load(function()
-  -- Nothing persistent yet; on_load reserved for Phase 1+.
+  -- chat_buffer is intentionally transient (not stored in `global`); resets on load.
 end)
