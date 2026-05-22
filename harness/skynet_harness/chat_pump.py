@@ -87,6 +87,9 @@ def main() -> int:
             if isinstance(entries, dict):
                 entries = [entries[k] for k in sorted(entries.keys(), key=lambda x: int(x))]
 
+            # Filter out bot-output entries (those starting with "[" — bot speaker label)
+            # to avoid feedback loops where eval-haiku reads its own output.
+            entries = [e for e in entries if not str(e.get("message", "")).lstrip().startswith("[")]
             if entries:
                 if args.no_batch:
                     for e in entries:

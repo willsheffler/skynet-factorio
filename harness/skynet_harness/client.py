@@ -91,3 +91,22 @@ class SkynetClient:
             "/sc rcon.print(helpers.table_to_json(remote.call('skynet', 'chat_clear')))"
         )
         return json.loads(raw)
+
+    def chat_as(self, speaker: str, message: str) -> str | None:
+        """Inject a synthetic chat message via on_console_chat. The mod's record_chat
+        will store it in the buffer; the chat_pump daemon will relay it to the
+        driving agent same as any real player chat.
+
+        Use this for Vellum-side test commands. The speaker label is embedded in
+        the message itself (e.g. "VELLUM: skynet follow me") because synthetic
+        events have no real player_index.
+        """
+        # Lua-escape single quotes by doubling
+        safe = message.replace("\\", "\\\\").replace("'", "\\'")
+        # on_console_chat requires player_index; use Will's slot (1) as the channel,
+        # speaker label embedded in message for downstream parsing.
+        lua = (
+            f"script.raise_event(defines.events.on_console_chat, "
+            f"{{ player_index = 1, message = '{speaker}: {safe}' }})"
+        )
+        return self._client.send_command(f"/sc {lua}")
